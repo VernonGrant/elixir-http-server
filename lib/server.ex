@@ -15,4 +15,4 @@ defmodule Server do
   end
 end
 
-IO.puts Server.hello("Jhon")
+IO.puts(Server.hello("Jhon"))
