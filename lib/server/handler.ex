@@ -1,123 +1,194 @@
 defmodule Server.Handler do
-  @doc """
-  """
+  alias Server.Conv, as: Conv
+
+  # Module attributes are defined at compile time.
+  # @pages_path Path.expand("pages", File.cwd!())
+  @pages_path Path.expand("../../pages", __DIR__)
+
+  # Imports all the modules functions into the current module.
+  # import Server.Plugins
+
+  # Imports only a subset of modules into the current module.
+  import Server.Parser, only: [parse: 1]
+  import Server.Plugins, only: [rewrite_path: 1, log: 1, track: 1]
+  import Server.FileHandler
+
   def handle(request) do
     request
     |> parse
-    |> log
+    |> rewrite_path()
+    |> log()
     |> route
-    |> track
+    |> track()
     |> format_response
   end
 
-  def log(conv), do: IO.inspect(conv)
-
-  @doc """
-  Takes the request and parses it into a map.
-  """
-  def parse(request) do
-    # Pattern matching wow.
-    [mathod, path, _] =
-      request
-      |> String.split("\n")
-      |> List.first()
-      |> String.split(" ")
-
-    %{method: mathod, path: path, status: 200, body: ""}
+  def route(%Conv{method: "POST", path: "/bears"} = conv) do
+    %Conv{
+      conv
+      | status: 200,
+        body:
+          "Bear of type #{conv.params["type"]} with the name #{conv.params["name"]} has been created!"
+    }
   end
 
-  @doc """
-  Creates a new map that also has the response body.
-  """
-  def route(%{path: "/wildthings"} = conv) do
-    %{conv | status: 200, body: "Bears, Lions, Tigers"}
+  def route(%Conv{method: "GET", path: "/wildthings"} = conv) do
+    %Conv{conv | status: 200, body: "Bears, Lions, Tigers"}
   end
 
-  def route(%{path: "/bears"} = conv) do
-    %{conv | status: 200, body: "Poo, Winni"}
+  def route(%Conv{method: "GET", path: "/bears"} = conv) do
+    %Conv{conv | status: 200, body: "Poo, Winni"}
   end
 
-  def route(%{path: "/bears/" <> id} = conv) do
-    %{conv | status: 200, body: "Here is Bear #{id}"}
+  def route(%Conv{method: "GET", path: "/bears/new"} = conv) do
+    @pages_path
+    |> Path.join("form.html")
+    |> File.read()
+    |> handle_file(conv)
   end
 
-  def route(conv) do
+  def route(%Conv{method: "GET", path: "/bears/" <> id} = conv) do
+    %Conv{conv | status: 200, body: "Here is Bear #{id}"}
+  end
+
+  def route(%Conv{method: "GET", path: "/about"} = conv) do
+    @pages_path
+    |> Path.join("about.html")
+    |> File.read()
+    |> handle_file(conv)
+  end
+
+  def route(%Conv{} = conv) do
     %{conv | status: 404, body: "Page was found"}
-  end
-
-  def track(%{status: 404} = conv) do
-    IO.puts("The #{conv[:path]} went wild!!")
-    conv
-  end
-
-  def track(conv), do: conv
-
-  defp status_reason(code) do
-    %{
-      200 => "OK",
-      201 => "Created",
-      401 => "Unauthorized",
-      403 => "Forbidden",
-      404 => "Not Found",
-      500 => "Internal Server Error"
-    }[code]
   end
 
   @doc """
   Uses the map to create a response.
   """
-  def format_response(conv) do
+  def format_response(%Conv{} = conv) do
     """
-    HTTP/1.1 #{conv.status} #{status_reason(conv.status)}
+    HTTP/1.1 #{Conv.full_status(conv)}
     Content-Type: text/html
     Content-Length: #{byte_size(conv.body)}
 
     #{conv.body}
     """
   end
+
+  def triple(nums) do
+    triple(nums, [])
+  end
+
+  defp triple([head | tail], current_list) do
+    triple(tail, [head * 3 | current_list])
+  end
+
+  defp triple([], current_list), do: Enum.reverse(current_list)
 end
+
+# def route(%{method: "GET", path: "/about"} = conv) do
+#   file =
+#     Path.expand("../../pages", __DIR__)
+#     |> Path.join("about.html")
+
+#   # Note we can also split this out into functions that uses pattern matching.
+#   case File.read(file) do
+#     {:ok, content} -> %{conv | status: 200, body: content}
+#     {:error, :enoent} -> %{conv | status: 500, body: "File not found"}
+#     {:error, reason} -> %{conv | status: 500, body: "File error: #{reason}"}
+#   end
+# end
 
 # Just some random tests.
 
+# request = """
+# GET /wildthings HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# request = """
+# GET /bears HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# request = """
+# GET /bigfoot HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# request = """
+# GET /bears/1 HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# request = """
+# GET /bears/new HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# request = """
+# GET /wildlife HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# request = """
+# GET /about HTTP/1.1
+# Host: example.com
+# User-Agent: ExampleBrowser/1.0
+# Accept: */*
+
+# """
+
+# response = Server.Handler.handle(request)
+# IO.puts(response)
+
+# Post request example
+
 request = """
-GET /wildthings HTTP/1.1
+POST /bears HTTP/1.1
 Host: example.com
 User-Agent: ExampleBrowser/1.0
 Accept: */*
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 21
 
-"""
-
-response = Server.Handler.handle(request)
-IO.puts(response)
-
-request = """
-GET /bears HTTP/1.1
-Host: example.com
-User-Agent: ExampleBrowser/1.0
-Accept: */*
-
-"""
-
-response = Server.Handler.handle(request)
-IO.puts(response)
-
-request = """
-GET /bigfoot HTTP/1.1
-Host: example.com
-User-Agent: ExampleBrowser/1.0
-Accept: */*
-
-"""
-
-response = Server.Handler.handle(request)
-IO.puts(response)
-
-request = """
-GET /bears/1 HTTP/1.1
-Host: example.com
-User-Agent: ExampleBrowser/1.0
-Accept: */*
-
+name=Baloo&type=Brown
 """
 
 response = Server.Handler.handle(request)
