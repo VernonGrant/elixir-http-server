@@ -1,5 +1,5 @@
 defmodule Server.Plugins do
-  alias Server.Conv, as: Conv
+  alias Server.Conv
 
   require Logger
 

@@ -1,5 +1,6 @@
 defmodule Server.Handler do
-  alias Server.Conv, as: Conv
+  alias Server.Conv
+  alias Server.BearController
 
   # Module attributes are defined at compile time.
   # @pages_path Path.expand("pages", File.cwd!())
@@ -23,32 +24,21 @@ defmodule Server.Handler do
     |> format_response
   end
 
-  def route(%Conv{method: "POST", path: "/bears"} = conv) do
-    %Conv{
-      conv
-      | status: 200,
-        body:
-          "Bear of type #{conv.params["type"]} with the name #{conv.params["name"]} has been created!"
-    }
-  end
-
   def route(%Conv{method: "GET", path: "/wildthings"} = conv) do
     %Conv{conv | status: 200, body: "Bears, Lions, Tigers"}
   end
 
   def route(%Conv{method: "GET", path: "/bears"} = conv) do
-    %Conv{conv | status: 200, body: "Poo, Winni"}
-  end
-
-  def route(%Conv{method: "GET", path: "/bears/new"} = conv) do
-    @pages_path
-    |> Path.join("form.html")
-    |> File.read()
-    |> handle_file(conv)
+    BearController.index(conv)
   end
 
   def route(%Conv{method: "GET", path: "/bears/" <> id} = conv) do
-    %Conv{conv | status: 200, body: "Here is Bear #{id}"}
+    params = Map.put(conv.params, "id", id)
+    BearController.show(conv, params)
+  end
+
+  def route(%Conv{method: "POST", path: "/bears"} = conv) do
+    BearController.create(conv, conv.params)
   end
 
   def route(%Conv{method: "GET", path: "/about"} = conv) do
@@ -59,7 +49,7 @@ defmodule Server.Handler do
   end
 
   def route(%Conv{} = conv) do
-    %{conv | status: 404, body: "Page was found"}
+    %Conv{conv | status: 404, body: "Page was found"}
   end
 
   @doc """

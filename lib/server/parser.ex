@@ -1,5 +1,5 @@
 defmodule Server.Parser do
-  alias Server.Conv, as: Conv
+  alias Server.Conv
 
   @doc " Takes the request and parses it into a map."
   def parse(request) do
